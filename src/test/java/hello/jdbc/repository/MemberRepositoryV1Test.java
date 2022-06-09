@@ -1,10 +1,12 @@
 package hello.jdbc.repository;
 
 import com.zaxxer.hikari.HikariDataSource;
-import hello.jdbc.connection.ConnectionConst;
 import hello.jdbc.domain.Member;
+import hello.jdbc.service.MemberServiceV1;
 import lombok.extern.slf4j.Slf4j;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.sql.SQLException;
@@ -13,11 +15,15 @@ import java.util.NoSuchElementException;
 import static hello.jdbc.connection.ConnectionConst.*;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.junit.jupiter.api.Assertions.*;
 
 @Slf4j
 class MemberRepositoryV1Test {
-    MemberRepositoryV1 repository;
+    public static final String MEMBER_A = "memberA";
+    public static final String MEMBER_B = "memberB";
+    public static final String MEMBER_EX = "ex";
+
+    private MemberRepositoryV1 memberRepository;
+    private MemberServiceV1 memberService;
 
     @BeforeEach
     void beforeEach() throws Exception {
@@ -30,16 +36,16 @@ class MemberRepositoryV1Test {
         dataSource.setUsername(USERNAME);
         dataSource.setPassword(PASSWORD);
 
-        repository = new MemberRepositoryV1(dataSource);
+        memberRepository = new MemberRepositoryV1(dataSource);
     }
 
     @Test
     void crud() throws SQLException {
         Member member = new Member("memberV4", 10000);
-        repository.save(member);
+        memberRepository.save(member);
 
         // findById
-        Member findMember = repository.findById(member.getMemberId());
+        Member findMember = memberRepository.findById(member.getMemberId());
         log.info("findMemberId={}", findMember);
 
         log.info("member == findMember {}", member == findMember);
@@ -47,14 +53,62 @@ class MemberRepositoryV1Test {
         assertThat(findMember).isEqualTo(member);
 
         // update money: 10000 -> 20000
-        repository.update(member.getMemberId(), 20000);
-        Member updateMember = repository.findById(member.getMemberId());
+        memberRepository.update(member.getMemberId(), 20000);
+        Member updateMember = memberRepository.findById(member.getMemberId());
         assertThat(updateMember.getMoney()).isEqualTo(20000);
 
         // delete
-        repository.delete(member.getMemberId());
-        assertThatThrownBy(() -> repository.findById(member.getMemberId()))
+        memberRepository.delete(member.getMemberId());
+        assertThatThrownBy(() -> memberRepository.findById(member.getMemberId()))
                 .isInstanceOf(NoSuchElementException.class);
     }
 
+    @AfterEach
+    void after() throws SQLException {
+        memberRepository.delete(MEMBER_A);
+        memberRepository.delete(MEMBER_B);
+        memberRepository.delete(MEMBER_EX);
+    }
+
+    @Test
+    @DisplayName("정상 이체")
+    void accountTransfer() throws SQLException {
+        // given
+        Member memberA = new Member(MEMBER_A, 10000);
+        Member memberB = new Member(MEMBER_B, 10000);
+        memberRepository.save(memberA);
+        memberRepository.save(memberB);
+
+        //when
+        memberService.accountTransfer(memberA.getMemberId(), memberB.getMemberId(), 2000);
+
+        // then
+        Member findMemberA = memberRepository.findById(memberA.getMemberId());
+        Member findMemberB = memberRepository.findById(memberB.getMemberId());
+
+        assertThat(findMemberA.getMoney()).isEqualTo(8000);
+        assertThat(findMemberB.getMoney()).isEqualTo(12000);
+    }
+
+    @Test
+    @DisplayName("이체 중 예외 발생")
+    void accountTransferEx() throws SQLException {
+        // given
+        Member memberA = new Member(MEMBER_A, 10000);
+        Member memberEx = new Member(MEMBER_EX, 10000);
+        memberRepository.save(memberA);
+        memberRepository.save(memberEx);
+
+        // when
+        assertThatThrownBy(() -> memberService.accountTransfer(memberA.getMemberId(), memberEx.getMemberId(), 2000))
+                .isInstanceOf(IllegalStateException.class);
+
+        // then
+        Member findMemberA = memberRepository.findById(memberA.getMemberId());
+        Member findMemberEx = memberRepository.findById(memberEx.getMemberId());
+
+        // memberA의 돈만 2000원 줄었고, ex의 돈은 10000원 그대로이다.
+        assertThat(findMemberA.getMoney()).isEqualTo(8000);
+        assertThat(findMemberEx.getMoney()).isEqualTo(10000);
+    }
 }
