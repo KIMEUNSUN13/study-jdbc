@@ -16,10 +16,6 @@ import java.sql.SQLException;
 @Slf4j
 @RequiredArgsConstructor
 public class MemberServiceV2 {
-    public static final String MEMBER_A = "memberA";
-    public static final String MEMBER_B = "memberB";
-    public static final String MEMBER_EX = "ex";
-
     private final DataSource dataSource;
     private final MemberRepositoryV2 memberRepository;
 
