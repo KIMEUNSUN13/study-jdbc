@@ -2,40 +2,27 @@ package hello.jdbc.service;
 
 import hello.jdbc.domain.Member;
 import hello.jdbc.repository.MemberRepositoryV3;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.TransactionStatus;
-import org.springframework.transaction.support.DefaultTransactionDefinition;
-import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.sql.SQLException;
 
 /**
- * 트렌젝션 -  트렌젝션 템플릿
+ * 트렌젝션 -  @Transactional AOP
  */
 
 @Slf4j
-// @RequiredArgsConstructor
-public class MemberServiceV3_2 {
-    // private final PlatformTransactionManager transactionManager;
-    private final TransactionTemplate txTemplate;
+// @Transactional
+public class MemberServiceV3_3 {
     private final MemberRepositoryV3 memberRepository;
 
-    public MemberServiceV3_2(PlatformTransactionManager transactionManager, MemberRepositoryV3 memberRepository) {
-        this.txTemplate = new TransactionTemplate(transactionManager);
+    public MemberServiceV3_3(MemberRepositoryV3 memberRepository) {
         this.memberRepository = memberRepository;
     }
 
+    @Transactional
     public void accountTransfer(String fromId, String toId, int money) throws SQLException {
-                                        // TransactionStatus
-        txTemplate.executeWithoutResult((status) -> {
-            try {
-                bizLogic(fromId, toId, money);
-            } catch (SQLException e) {
-                throw new IllegalStateException(e);
-            }
-        });
+        bizLogic(fromId, toId, money);
     }
 
     private void bizLogic(String fromId, String toId, int money) throws SQLException {
